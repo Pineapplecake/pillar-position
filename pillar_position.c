@@ -5,16 +5,16 @@
 #include <unistd.h>
 
 #define NUM_THREADS 12
-#define LCG_MULT 0x5DEECE66D
-#define LCG_ADD 0xB
-#define LCG_MOD_MASK ((int64_t)1 << 48) - 1
+#define LCG_MULT ((uint64_t)0x5DEECE66D)
+#define LCG_ADD ((uint64_t)0xB)
+#define LCG_MOD_MASK ((uint64_t)1 << 48) - 1
 
 typedef struct {
     int tid;                    // thread id
     int tcnt;                   // number of threads
     int *tstatus;               // each thread sets the bit corresponding to its tid to 0 when finished
     pthread_mutex_t *ts_mutex;  // mutex for setting tstatus
-    int64_t *pillar_counts;     // number of times a pillar generates at each position
+    uint64_t *pillar_counts;     // number of times a pillar generates at each position
     pthread_mutex_t *pc_mutex;  // mutex for reading_writing each pillar position
 } thread_info;
 
@@ -22,9 +22,9 @@ void *tallyPillarsThread(void *arg) {
     thread_info *info = (thread_info*)arg;
 
     int x, y, z;
-    int64_t s_upper, s_lower, seed;
-    int64_t start = (int64_t)((5*info->tid) << 17);
-    int64_t step = (int64_t)((5*info->tcnt) << 17);
+    uint64_t s_upper, s_lower, seed;
+    uint64_t start = (uint64_t)((5*info->tid) << 17);
+    uint64_t step = (uint64_t)((5*info->tcnt) << 17);
     // search upper bits that satisfy first requirement (nextInt(5) == 0)
     for(s_upper = start; s_upper <= LCG_MOD_MASK; s_upper += step) {
         // bruteforce lower bits
@@ -45,7 +45,6 @@ void *tallyPillarsThread(void *arg) {
             seed = (LCG_MULT*seed + LCG_ADD) & LCG_MOD_MASK;
             y = seed >> 43;
 
-
             // incrementer counter for pillar position
             pthread_mutex_lock(&(info->pc_mutex[x+4*y+128*z]));
             ++(info->pillar_counts[x+4*y+128*z]);
@@ -62,7 +61,7 @@ void *tallyPillarsThread(void *arg) {
 
 int main() {
     // setup pillar tally array
-    int64_t *pillar_counts = (int64_t*)calloc(4*32*6,sizeof(int64_t));
+    uint64_t *pillar_counts = (uint64_t*)calloc(4*32*6,sizeof(uint64_t));
     pthread_mutex_t *pc_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t)*4*32*6);
     for(int i = 0; i < 4*32*6; ++i) {
         pthread_mutex_init(&pc_mutex[i], NULL);
@@ -92,14 +91,14 @@ int main() {
     // monitor count
     int cont = 1;
     int x, y, z, maxX, maxY, maxZ;
-    int64_t count, max;
+    uint64_t count, max;
     while(cont) {
         pthread_mutex_lock(&ts_mutex);
         if(!tstatus) cont = 0;
         pthread_mutex_unlock(&ts_mutex);
 
         maxX = maxY = maxZ = 0;
-        max = -1;
+        max = 0;
         for(x = 0; x < 4; ++x) {
             for(y = 0; y < 32; ++y) {
                 for(z = 0; z < 6; ++z) {
